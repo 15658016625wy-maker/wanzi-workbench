@@ -59,10 +59,10 @@ git push -u origin main
 #### 第5步：设置环境变量（关键！）
 在 Railway 项目的 "Variables" 标签页，逐个添加：
 ```
-ARK_API_KEY=<YOUR_ARK_API_KEY>
+ARK_API_KEY=<你的豆包API Key，在本地 .env 文件中查找>
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-ARK_TEXT_MODEL=<YOUR_ARK_MODEL_EP>
-ARK_VISION_MODEL=<YOUR_ARK_MODEL_EP>
+ARK_TEXT_MODEL=<你的推理接入点ID>
+ARK_VISION_MODEL=<你的推理接入点ID>
 ```
 设置后 Railway 会自动重新部署。
 
