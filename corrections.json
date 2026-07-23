@@ -1,0 +1,10 @@
+[
+  {
+    "originalInput": "周三下午三点去小宇家家访",
+    "aiDomain": "life",
+    "correctedDomain": "kindergarten",
+    "aiType": "task",
+    "correctedType": "task",
+    "createdAt": "2026-07-22T21:36:54.387025"
+  }
+]
