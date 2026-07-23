@@ -218,6 +218,16 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
 .todo-more-btn{flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-tertiary);cursor:pointer;border-radius:var(--radius-sm);transition:background .15s}
 .todo-more-btn:active{background:var(--bg-secondary)}
 
+/* Focused todo — weakened appearance in todo plan */
+.todo-item.is-focused{opacity:.55}
+.todo-item.is-focused .todo-title{color:var(--text-secondary)}
+.todo-item.is-focused .todo-check{border-color:var(--accent);background:var(--accent-bg)}
+
+/* Project editor module grid */
+.pj-module-card{flex:1;min-width:70px;text-align:center;padding:12px 8px;font-size:13px;font-weight:500;color:var(--text-secondary);background:var(--bg-secondary);border-radius:var(--radius-md);border:2px solid transparent;cursor:pointer;transition:all .15s}
+.pj-module-card:active{transform:scale(.97)}
+.pj-module-card.selected{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+
 /* ========== Tags ========== */
 .tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap}
 .tag-blue{background:var(--accent-bg);color:var(--accent)}
@@ -585,7 +595,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   </div>
 
   <!-- FAB -->
-  <div class="fab" onclick="openQuickAction()">
+  <div class="fab" onclick="openCapture()">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
   </div>
 
@@ -626,7 +636,10 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   <div class="modal-sheet">
     <div class="modal-header">
       <div class="modal-title">快速记录</div>
-      <button class="modal-close" onclick="closeCapture()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="modal-close" onclick="closeCapture();openQuickAction()" style="font-size:18px;background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:4px 8px" title="更多">⋯</button>
+        <button class="modal-close" onclick="closeCapture()">✕</button>
+      </div>
     </div>
 
     <!-- Step 1: Input -->
@@ -634,7 +647,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
       <div class="qr-tabs">
         <div class="qr-tab active" onclick="switchQRTab('text',this)">✏️ 文字</div>
         <div class="qr-tab" onclick="switchQRTab('voice',this)">🎤 语音</div>
-        <div class="qr-tab" onclick="switchQRTab('import',this)">💬 导入</div>
+        <div class="qr-tab" onclick="switchQRTab('image',this)">📷 截图</div>
         <div class="qr-tab" onclick="switchQRTab('manual',this)">📋 手动</div>
       </div>
 
@@ -659,15 +672,23 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
         </div>
       </div>
 
-      <!-- Import -->
-      <div id="qrImportInput" style="display:none">
-        <div class="qr-import-btns">
-          <div class="qr-import-btn" onclick="showImport('wechat')">💬 微信</div>
-          <div class="qr-import-btn" onclick="showImport('dingtalk')">📎 钉钉</div>
+      <!-- Image Upload -->
+      <div id="qrImageInput" style="display:none">
+        <div class="import-upload-area" onclick="document.getElementById('captureFile').click()">
+          <div class="import-upload-icon">📷</div>
+          <div class="import-upload-text">点击上传截图，AI 自动识别</div>
+        </div>
+        <input type="file" id="captureFile" accept="image/jpeg,image/png,image/jpg,image/webp" style="display:none" onchange="handleCaptureFile(this)">
+        <div id="captureImgPreview" style="margin-top:12px;display:none;text-align:center">
+          <img id="captureImgPreviewImg" style="max-width:100%;border-radius:var(--radius-md);max-height:200px">
+        </div>
+        <div class="capture-actions" style="margin-top:12px">
+          <button class="btn-cancel" onclick="closeCapture()">取消</button>
+          <button class="btn-confirm" id="captureImgSubmitBtn" onclick="submitCaptureImage()">✦ 提交截图分析</button>
         </div>
         <div class="hint-box">
           <span>💡</span>
-          <span>支持粘贴聊天文本或上传截屏。截图直接发送给 AI 视觉模型分析，无需本地 OCR。AI 仅提取明确出现的事项（Zero Hallucination）。</span>
+          <span>上传聊天截图、通知截图等，AI 视觉模型自动提取事项（Zero Hallucination，仅提取明确出现的内容）。</span>
         </div>
       </div>
 
@@ -731,45 +752,6 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   </div>
 </div>
 
-<!-- ========== Import Modal ========== -->
-<div class="modal-overlay" id="importOverlay">
-  <div class="modal-sheet">
-    <div class="modal-header">
-      <div class="modal-title" id="importTitle">导入聊天记录</div>
-      <button class="modal-close" onclick="closeImport()">✕</button>
-    </div>
-
-    <div class="import-tabs">
-      <div class="import-tab active" onclick="switchImportTab('paste',this)">📋 粘贴文本</div>
-      <div class="import-tab" onclick="switchImportTab('upload',this)">📷 截屏上传</div>
-    </div>
-
-    <!-- Paste -->
-    <div id="importPasteView">
-      <textarea class="import-textarea" id="importPasteText" placeholder="粘贴微信/钉钉聊天记录…"></textarea>
-      <div class="capture-actions" style="margin-top:12px">
-        <button class="btn-cancel" onclick="closeImport()">取消</button>
-        <button class="btn-confirm" onclick="callAIClassifyImport('paste')">✦ 提交分析</button>
-      </div>
-    </div>
-
-    <!-- Upload -->
-    <div id="importUploadView" style="display:none">
-      <div class="import-upload-area" onclick="document.getElementById('importFile').click()">
-        <div class="import-upload-icon">📷</div>
-        <div class="import-upload-text">点击上传微信/钉钉截屏</div>
-      </div>
-      <input type="file" id="importFile" accept="image/*" style="display:none" onchange="handleImportFile(this)">
-      <div id="importPreview" style="margin-top:12px;display:none;text-align:center">
-        <img id="importPreviewImg" style="max-width:100%;border-radius:var(--radius-md);max-height:200px">
-      </div>
-      <div class="capture-actions" style="margin-top:12px">
-        <button class="btn-cancel" onclick="closeImport()">取消</button>
-        <button class="btn-confirm" onclick="callAIClassifyImport('upload')">✦ 提交截图分析</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- ========== AI Task Queue Modal ========== -->
 <div class="modal-overlay" id="queueOverlay">
@@ -796,22 +778,10 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   </div>
 </div>
 
-<!-- ========== Quick Action Menu ========== -->
+<!-- ========== Quick Action Menu (for knowledge/project shortcuts) ========== -->
 <div class="modal-overlay" id="quickActionOverlay" onclick="if(event.target===this)closeQuickAction()">
   <div class="todo-menu-sheet">
-    <div class="todo-menu-title">选择创建类型</div>
-    <div class="todo-menu-item" onclick="closeQuickAction();openCapture()">
-      <span>✏️ 文字 AI 识别</span>
-    </div>
-    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();setTimeout(()=>switchQRTab('voice',document.querySelectorAll('.qr-tab')[1]),100)">
-      <span>🎤 语音 AI 识别</span>
-    </div>
-    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();setTimeout(()=>switchQRTab('import',document.querySelectorAll('.qr-tab')[2]),100)">
-      <span>💬 聊天截图识别</span>
-    </div>
-    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();setTimeout(()=>switchQRTab('manual',document.querySelectorAll('.qr-tab')[3]),100)">
-      <span>📋 手动创建待办</span>
-    </div>
+    <div class="todo-menu-title">更多操作</div>
     <div class="todo-menu-item" onclick="closeQuickAction();openKnowledgeEditor()">
       <span>📚 知识备忘录</span>
     </div>
@@ -858,6 +828,29 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
     <div id="knAIPreview" style="display:none;margin-bottom:12px;padding:12px;background:var(--accent-bg);border-radius:var(--radius-md);font-size:13px;line-height:1.6"></div>
     <div style="display:flex;gap:8px">
       <button class="btn-primary" style="flex:1;padding:14px;font-size:15px;font-weight:600" onclick="saveKnowledge()">保存到知识库</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Project Editor ========== -->
+<div class="modal-overlay" id="projectEditorOverlay" onclick="if(event.target===this)closeProjectEditor()">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">📁 创建项目</div>
+      <button class="modal-close" onclick="closeProjectEditor()">✕</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <input type="text" id="pjName" placeholder="项目名称" style="width:100%;padding:10px 14px;border:2px solid var(--bg-secondary);border-radius:var(--radius-md);font-size:15px;outline:none">
+    </div>
+    <div style="margin-bottom:12px">
+      <textarea id="pjDesc" placeholder="项目描述（可选）" style="width:100%;min-height:70px;padding:14px;border:2px solid var(--bg-secondary);border-radius:var(--radius-md);font-size:14px;resize:vertical;outline:none;line-height:1.6"></textarea>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">选择模块</div>
+      <div id="pjModuleGrid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1;padding:14px;font-size:15px;font-weight:600" onclick="saveProject()">创建项目</button>
     </div>
   </div>
 </div>
@@ -1328,7 +1321,7 @@ function renderWelcome() {
     <div class="welcome-title">丸子的工作台</div>
     <div class="welcome-sub">你的 AI 个人工作台<br>围绕 Today · Task · Project · Knowledge 构建</div>
     <div class="welcome-feature"><div class="wf-icon">✏️</div><div class="wf-text"><strong>快速记录</strong>输入任何内容，AI 自动识别分类，确认后保存</div></div>
-    <div class="welcome-feature"><div class="wf-icon">💬</div><div class="wf-text"><strong>聊天记录导入</strong>微信/钉钉文本或截屏，AI 提取任务（不虚构）</div></div>
+    <div class="welcome-feature"><div class="wf-icon">📷</div><div class="wf-text"><strong>截图识别</strong>上传聊天截图或通知截图，AI 提取任务（不虚构）</div></div>
     <div class="welcome-feature"><div class="wf-icon">🎯</div><div class="wf-text"><strong>今日聚焦</strong>AI 分析优先事项，告诉你今天该做什么</div></div>
     <div class="welcome-feature"><div class="wf-icon">🔒</div><div class="wf-text"><strong>重要信息 & 知识库</strong>安全保存重要信息，知识全文搜索</div></div>
     <button class="empty-btn" onclick="openCapture()">创建第一条记录 →</button>
@@ -1346,11 +1339,11 @@ function renderTodoItem(t) {
   // Left-side action: "加入聚焦/移出聚焦" for pending tasks only
   const leftAction = status === 'pending' ? `<div class="swipe-actions-left"><div class="swipe-btn ${focusBtnClass}" onclick="event.stopPropagation();swipeFocusAction('${t.id}')">${focusLabel}</div></div>` : '';
   // Right-side action: "完成" for pending, "撤销" for done
-  return `<div class="swipe-wrap" data-id="${t.id}" data-swipe-id="${t.id}" data-swipe-status="${status}">
+  return `<div class="swipe-wrap ${isInFocus ? 'has-focus' : ''}" data-id="${t.id}" data-swipe-id="${t.id}" data-swipe-status="${status}">
     ${leftAction}
     <div class="swipe-actions"><div class="swipe-btn ${btnClass}" onclick="event.stopPropagation();swipeAction('${t.id}')">${btnLabel}</div></div>
     <div class="swipe-content">
-      <div class="todo-item" data-id="${t.id}">
+      <div class="todo-item ${status === 'done' ? 'done' : ''} ${isInFocus && status === 'pending' ? 'is-focused' : ''}" data-id="${t.id}">
         ${renderTodoItemInner(t)}
       </div>
     </div>
@@ -1829,6 +1822,7 @@ function renderModulePage(key) {
     }
   } else if (_moduleTab === 'projects') {
     const projects = data.projects.filter(p => p.domain === key);
+    html += `<div style="padding:0 0 12px"><button class="btn-primary" style="width:100%;padding:12px;font-size:14px" onclick="openProjectEditor('${key}')">+ 创建项目</button></div>`;
     if (projects.length === 0) {
       html += '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-title">暂无项目</div><div class="empty-sub">长期目标可创建为项目统一管理</div></div>';
     } else {
@@ -2342,6 +2336,13 @@ function openCapture() {
   _aiResult = null;
   _aiImageBase64 = null;
   _aiImagePreview = null;
+  // Default to text tab
+  switchQRTab('text', document.querySelector('.qr-tab'));
+  // Auto-focus the textarea after a short delay (for mobile keyboard)
+  setTimeout(() => {
+    const input = document.getElementById('captureInput');
+    if (input) input.focus();
+  }, 300);
 }
 
 // Quick Action Menu — type selection when clicking +
@@ -2505,22 +2506,45 @@ function convertKnToTodo() {
   showToast('已另存为待办 ✓（原知识记录保留）');
 }
 
-// Project Editor (quick create)
-function openProjectEditor() {
-  const name = prompt('项目名称：');
-  if (!name || !name.trim()) return;
-  const domainOptions = Object.entries(MODULES).filter(([k]) => k !== 'important' && k !== 'review').map(([k,v]) => `${v.icon} ${v.name}(${k})`).join('\n');
-  const domain = prompt('选择模块（输入模块key）：\n' + domainOptions, 'ai');
-  if (!domain || !MODULES[domain]) { showToast('模块无效'); return; }
+// Project Editor (modal with module selection)
+let _pjSelectedDomain = null;
+function openProjectEditor(defaultDomain) {
+  // Reset fields
+  document.getElementById('pjName').value = '';
+  document.getElementById('pjDesc').value = '';
+  _pjSelectedDomain = defaultDomain || null;
+  renderPjModuleGrid();
+  document.getElementById('projectEditorOverlay').classList.add('show');
+}
+function closeProjectEditor() {
+  document.getElementById('projectEditorOverlay').classList.remove('show');
+}
+function renderPjModuleGrid() {
+  const grid = document.getElementById('pjModuleGrid');
+  const modules = Object.entries(MODULES).filter(([k]) => k !== 'important' && k !== 'review');
+  grid.innerHTML = modules.map(([k,v]) => 
+    `<div class="pj-module-card ${_pjSelectedDomain === k ? 'selected' : ''}" onclick="selectPjModule('${k}')">${v.icon} ${v.name}</div>`
+  ).join('');
+}
+function selectPjModule(key) {
+  _pjSelectedDomain = key;
+  renderPjModuleGrid();
+}
+function saveProject() {
+  const name = document.getElementById('pjName').value.trim();
+  if (!name) { showToast('请输入项目名称'); return; }
+  if (!_pjSelectedDomain) { showToast('请选择模块'); return; }
+  const desc = document.getElementById('pjDesc').value.trim();
 
   const id = 'p' + Date.now();
   data.projects.push({
-    id, name: name.trim(), domain,
+    id, name, domain: _pjSelectedDomain,
     startDate: todayStr(), endDate: null,
-    owner: '丸子', nextAction: null, description: '',
+    owner: '丸子', nextAction: null, description: desc,
     status: 'active', createdAt: todayStr(), lastActivity: new Date().toISOString()
   });
   saveData();
+  closeProjectEditor();
   showToast('项目已创建 ✓');
   navigateTo(currentView);
 }
@@ -2533,7 +2557,7 @@ function switchQRTab(tab, el) {
   el.classList.add('active');
   document.getElementById('qrTextInput').style.display = tab === 'text' ? 'block' : 'none';
   document.getElementById('qrVoiceInput').style.display = tab === 'voice' ? 'block' : 'none';
-  document.getElementById('qrImportInput').style.display = tab === 'import' ? 'block' : 'none';
+  document.getElementById('qrImageInput').style.display = tab === 'image' ? 'block' : 'none';
   document.getElementById('qrManualInput').style.display = tab === 'manual' ? 'block' : 'none';
   if (tab === 'manual') renderManualModuleGrid();
 }
@@ -3598,75 +3622,19 @@ function toggleVoiceRecord() {
   _voiceRecognition.start();
 }
 
-/* ========== Import (WeChat/DingTalk) ========== */
-let _importSource = 'wechat';
-function showImport(source) {
-  _importSource = source;
-  closeCapture();
-  document.getElementById('importTitle').textContent = source === 'wechat' ? '导入微信聊天记录' : '导入钉钉聊天记录';
-  document.getElementById('importOverlay').classList.add('show');
-  document.getElementById('importPasteText').value = '';
-  document.getElementById('importPreview').style.display = 'none';
-  _aiImageBase64 = null;
-  _aiImagePreview = null;
-  switchImportTab('paste', document.querySelector('.import-tab'));
-}
+/* ========== Direct Image Upload (in capture modal) ========== */
 
-function closeImport() {
-  document.getElementById('importOverlay').classList.remove('show');
-}
-
-function switchImportTab(tab, el) {
-  document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('importPasteView').style.display = tab === 'paste' ? 'block' : 'none';
-  document.getElementById('importUploadView').style.display = tab === 'upload' ? 'block' : 'none';
-}
-
-async function callAIClassifyImport(tab) {
-  if (tab === 'paste') {
-    const text = document.getElementById('importPasteText').value.trim();
-    if (!text) { showToast('请先粘贴聊天记录'); return; }
-
-    // Submit to background queue — non-blocking
-    submitTextToQueue(text);
-
-    // Clear and close import modal
-    document.getElementById('importPasteText').value = '';
-    closeImport();
-    showToast('已提交 AI 分析，可继续输入下一条 📝');
-
-  } else if (tab === 'upload') {
-    if (!_aiImageBase64) {
-      showToast('图片尚未处理完成，请稍候');
-      return;
-    }
-    const sourceType = _importSource === 'dingtalk' ? 'dingtalk_image' : 'wechat_image';
-
-    // Submit to background queue — non-blocking
-    submitImageToQueue(_aiImageBase64, sourceType, _aiImagePreview);
-
-    // Reset and close
-    _aiImageBase64 = null;
-    _aiImagePreview = null;
-    document.getElementById('importPreview').style.display = 'none';
-    document.getElementById('importFile').value = '';
-    closeImport();
-    showToast('已提交截图分析，可继续操作 📷');
-  }
-}
-
-function handleImportFile(input) {
+function handleCaptureFile(input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
 
-  // Privacy reminder — remind user to check sensitive info
+  // Privacy reminder
   if (!confirm('⚠️ 隐私提醒：上传前请确认截图不包含幼儿姓名、家长手机号等敏感信息。是否继续？')) {
     input.value = '';
     return;
   }
 
-  // Validate file type — only accept images (iOS may report HEIC as image/heic or image/heif)
+  // Validate file type
   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
   const blockedTypes = ['image/heic', 'image/heif'];
   if (file.type && blockedTypes.includes(file.type)) {
@@ -3680,54 +3648,69 @@ function handleImportFile(input) {
     return;
   }
 
-  // Validate file size — reject if larger than 16MB
+  // Validate file size
   if (file.size > 16 * 1024 * 1024) {
     showToast('图片过大（超过16MB），请先压缩');
     input.value = '';
     return;
   }
 
-  // Temporarily disable analyze button until compression is done
-  const analyzeBtn = document.querySelector('#importUploadView .btn-confirm');
-  if (analyzeBtn) {
-    analyzeBtn.disabled = true;
-    analyzeBtn.textContent = '图片处理中…';
+  // Disable submit button during processing
+  const submitBtn = document.getElementById('captureImgSubmitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '图片处理中…';
   }
   _aiImageBase64 = null;
 
-  // Show preview
   const reader = new FileReader();
   reader.onload = (e) => {
     _aiImagePreview = e.target.result;
-    document.getElementById('importPreviewImg').src = e.target.result;
-    document.getElementById('importPreview').style.display = 'block';
+    document.getElementById('captureImgPreviewImg').src = e.target.result;
+    document.getElementById('captureImgPreview').style.display = 'block';
 
-    // Compress and store base64 for API call
     compressImage(file).then(compressed => {
       _aiImageBase64 = compressed;
       console.log('[Image] compressed size:', compressed.length, 'chars');
-      if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '✦ 提交截图分析';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '✦ 提交截图分析';
       }
       showToast('图片处理完成，可提交分析');
     }).catch(err => {
       console.error('[Image] compression failed:', err);
       showToast('图片处理失败：' + (err.message || '请重试'));
-      if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '✦ 提交截图分析';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '✦ 提交截图分析';
       }
     });
   };
   reader.onerror = () => {
     showToast('读取图片失败，请重试');
-    if (analyzeBtn) {
-      analyzeBtn.disabled = false;
-      analyzeBtn.textContent = '✦ 提交截图分析';
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '✦ 提交截图分析';
     }
   };
   reader.readAsDataURL(file);
+}
+
+function submitCaptureImage() {
+  if (!_aiImageBase64) {
+    showToast('请先上传图片');
+    return;
+  }
+  // Submit to background queue — non-blocking
+  submitImageToQueue(_aiImageBase64, 'screenshot', _aiImagePreview);
+
+  // Reset and close
+  _aiImageBase64 = null;
+  _aiImagePreview = null;
+  document.getElementById('captureImgPreview').style.display = 'none';
+  document.getElementById('captureFile').value = '';
+  closeCapture();
+  showToast('已提交截图分析，可继续操作 📷');
 }
 
 async function compressImage(file) {
