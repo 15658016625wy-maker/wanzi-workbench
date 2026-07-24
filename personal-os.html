@@ -635,7 +635,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
 <div class="modal-overlay" id="captureOverlay">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">快速记录</div>
+      <div class="modal-title" id="captureModalTitle">快速记录</div>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="modal-close" onclick="closeCapture();openQuickAction()" style="font-size:18px;background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:4px 8px" title="更多">⋯</button>
         <button class="modal-close" onclick="closeCapture()">✕</button>
@@ -644,7 +644,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
 
     <!-- Step 1: Input -->
     <div id="captureStep1">
-      <div class="qr-tabs">
+      <div class="qr-tabs" id="qrTabs">
         <div class="qr-tab active" onclick="switchQRTab('text',this)">✏️ 文字</div>
         <div class="qr-tab" onclick="switchQRTab('voice',this)">🎤 语音</div>
         <div class="qr-tab" onclick="switchQRTab('image',this)">📷 截图</div>
@@ -659,7 +659,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
         </div>
         <div class="capture-actions">
           <button class="btn-cancel" onclick="closeCapture()">取消</button>
-          <button class="btn-confirm" onclick="callAIClassify('text')">✦ 提交分析</button>
+          <button class="btn-confirm" id="captureSubmitBtn" onclick="callAIClassify('text')">✦ 提交分析</button>
         </div>
       </div>
 
@@ -2336,13 +2336,55 @@ function openCapture() {
   _aiResult = null;
   _aiImageBase64 = null;
   _aiImagePreview = null;
-  // Default to text tab
-  switchQRTab('text', document.querySelector('.qr-tab'));
+
+  // Project context: direct add, no AI classification
+  const isInProject = currentView === 'project' && _currentProjectId;
+  const proj = isInProject ? data.projects.find(x => x.id === _currentProjectId) : null;
+  if (isInProject && proj) {
+    document.getElementById('captureModalTitle').textContent = '添加到「' + proj.name + '」';
+    document.getElementById('qrTabs').style.display = 'none';
+    const input = document.getElementById('captureInput');
+    input.placeholder = '输入待办事项，直接添加到项目（无需AI识别）…';
+    const submitBtn = document.getElementById('captureSubmitBtn');
+    submitBtn.textContent = '✓ 添加到项目';
+    submitBtn.onclick = function() { submitProjectTask(); };
+    // Hide voice tabs content, only show text
+    switchQRTab('text', document.querySelector('.qr-tab'));
+    document.getElementById('qrVoiceInput').style.display = 'none';
+    document.getElementById('qrImageInput').style.display = 'none';
+    document.getElementById('qrManualInput').style.display = 'none';
+  } else {
+    resetCaptureModal();
+    switchQRTab('text', document.querySelector('.qr-tab'));
+  }
+
   // Auto-focus the textarea after a short delay (for mobile keyboard)
   setTimeout(() => {
     const input = document.getElementById('captureInput');
     if (input) input.focus();
   }, 300);
+}
+
+// Directly add a task to the current project (no AI classification)
+function submitProjectTask() {
+  const text = document.getElementById('captureInput').value.trim();
+  if (!text) { showToast('请先输入待办内容'); return; }
+  const proj = data.projects.find(x => x.id === _currentProjectId);
+  if (!proj) { showToast('项目不存在'); return; }
+  addTaskToProject(_currentProjectId, text);
+  closeCapture();
+  renderProjectDetail(_currentProjectId);
+  showToast('已添加到「' + proj.name + '」 ✓');
+}
+
+// Restore capture modal to default (AI classification) mode
+function resetCaptureModal() {
+  document.getElementById('captureModalTitle').textContent = '快速记录';
+  document.getElementById('qrTabs').style.display = '';
+  document.getElementById('captureInput').placeholder = '输入任何内容，AI 自动识别分类…';
+  const submitBtn = document.getElementById('captureSubmitBtn');
+  submitBtn.textContent = '✦ 提交分析';
+  submitBtn.onclick = function() { callAIClassify('text'); };
 }
 
 // Quick Action Menu — type selection when clicking +
@@ -2550,6 +2592,8 @@ function saveProject() {
 }
 function closeCapture() {
   document.getElementById('captureOverlay').classList.remove('show');
+  // Reset to default AI mode so next open is clean
+  resetCaptureModal();
 }
 
 function switchQRTab(tab, el) {
