@@ -701,6 +701,110 @@ def classify_legacy():
         return jsonify({"error": "no_input", "message": "请提供 text 或 image 字段"}), 400
 
 
+# ========== AI Project Planning ==========
+
+PROJECT_PLAN_PROMPT = """你是「丸子的工作台」的项目规划助手。
+
+你的职责是：分析用户输入的文字，判断是否描述了一个需要持续推进的项目（Project），如果是则自动拆分阶段和任务。
+
+判断标准 — 什么是Project：
+- 一个需要多天/多周持续推进的目标（如"开学前家访""公开课比赛""健身计划"）
+- 包含多个步骤、多个阶段
+- 不是单个待办事项
+
+判断标准 — 什么不是Project：
+- 单个任务（如"买菜""发通知"）
+- 知识记录（如"今天学了一个新概念"）
+- 日常重复事项
+
+如果判断为Project，返回：
+{
+  "isProject": true,
+  "project": {
+    "name": "项目名称（简洁有力）",
+    "description": "项目描述（一句话）",
+    "domain": "kindergarten | ai | fitness | life",
+    "dueDate": "YYYY-MM-DD或null（如果输入中提到截止时间）"
+  },
+  "phases": [
+    {
+      "name": "阶段名称",
+      "tasks": ["任务1", "任务2", "任务3"]
+    }
+  ]
+}
+
+如果判断不是Project，返回：
+{
+  "isProject": false,
+  "reason": "简要说明为什么不是项目"
+}
+
+注意：只返回纯JSON，不要包含任何解释文字、markdown标记或代码块标记。"""
+
+
+@app.route("/api/ai/plan-project", methods=["POST"])
+def plan_project():
+    """
+    POST /api/ai/plan-project
+    Body: {"text": "...", "currentDate": "YYYY-MM-DD"}
+    Returns: {isProject, project, phases} or {isProject: false, reason}
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "").strip()
+        if not text:
+            return jsonify({"error": "no_input", "message": "请提供 text 字段"}), 400
+
+        current_date = data.get("currentDate", date.today().isoformat())
+        provider = data.get("provider", None)
+        config = get_provider_config(provider or ACTIVE_PROVIDER)
+        client = OpenAI(api_key=config["api_key"], base_url=config["api_base"])
+
+        user_content = f"[当前日期: {current_date}]\n\n用户输入：{text}\n\n请分析这是否是一个需要持续推进的项目。"
+
+        response = client.chat.completions.create(
+            model=config["model_text"],
+            messages=[
+                {"role": "system", "content": PROJECT_PLAN_PROMPT},
+                {"role": "user", "content": user_content}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            max_tokens=2048,
+            timeout=30.0
+        )
+
+        raw = response.choices[0].message.content
+        # Clean up response
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+            cleaned = re.sub(r'\n?```$', '', cleaned).strip()
+
+        result = json.loads(cleaned)
+        result["_provider"] = provider or ACTIVE_PROVIDER
+        logger.info(f"plan-project: isProject={result.get('isProject')}, phases={len(result.get('phases', []))}")
+        return jsonify(result)
+
+    except ValueError as e:
+        logger.error(f"Config error: {e}")
+        return jsonify({"error": "config_error", "message": str(e)}), 500
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse error: {e}")
+        return jsonify({"error": "INVALID_AI_RESPONSE", "message": "AI 返回的 JSON 格式异常，请重试"}), 502
+    except Exception as e:
+        logger.error(f"API error: {e}\n{traceback.format_exc()}")
+        err = str(e)
+        if "timeout" in err.lower():
+            return jsonify({"error": "ARK_TIMEOUT", "message": "AI 响应超时，请重试"}), 504
+        return jsonify({"error": "api_error", "message": "AI 分析失败，请重试", "detail": err}), 502
+
+
+def _opt_plan(): return "", 204
+app.route("/api/ai/plan-project", methods=["OPTIONS"])(_opt_plan)
+
+
 # ========== Health Check ==========
 
 @app.route("/api/health", methods=["GET"])

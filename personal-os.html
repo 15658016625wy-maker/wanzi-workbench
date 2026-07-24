@@ -584,9 +584,9 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
       <span>待办计划</span>
     </div>
     <div style="width:56px"></div>
-    <div class="nav-item" data-nav="modules" onclick="navigateTo('modules')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span>模块</span>
+    <div class="nav-item" data-nav="projects" onclick="navigateTo('projects')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      <span>项目</span>
     </div>
     <div class="nav-item" data-nav="knowledge" onclick="navigateTo('knowledge')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
@@ -595,7 +595,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   </div>
 
   <!-- FAB -->
-  <div class="fab" onclick="openCapture()">
+  <div class="fab" onclick="openQuickAction()">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
   </div>
 
@@ -636,10 +636,7 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
   <div class="modal-sheet">
     <div class="modal-header">
       <div class="modal-title" id="captureModalTitle">快速记录</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="modal-close" onclick="closeCapture();openQuickAction()" style="font-size:18px;background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:4px 8px" title="更多">⋯</button>
-        <button class="modal-close" onclick="closeCapture()">✕</button>
-      </div>
+      <button class="modal-close" onclick="closeCapture()">✕</button>
     </div>
 
     <!-- Step 1: Input -->
@@ -781,12 +778,24 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
 <!-- ========== Quick Action Menu (for knowledge/project shortcuts) ========== -->
 <div class="modal-overlay" id="quickActionOverlay" onclick="if(event.target===this)closeQuickAction()">
   <div class="todo-menu-sheet">
-    <div class="todo-menu-title">更多操作</div>
+    <div class="todo-menu-title">快速新增</div>
+    <div class="todo-menu-item" onclick="closeQuickAction();openCapture()">
+      <span>✏️ 新增待办</span>
+    </div>
     <div class="todo-menu-item" onclick="closeQuickAction();openKnowledgeEditor()">
-      <span>📚 知识备忘录</span>
+      <span>📚 新增知识</span>
     </div>
     <div class="todo-menu-item" onclick="closeQuickAction();openProjectEditor()">
-      <span>📁 创建项目</span>
+      <span>📁 新增项目</span>
+    </div>
+    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();switchQRTab('text',document.querySelector('.qr-tab'))">
+      <span>✦ AI文字识别</span>
+    </div>
+    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();switchQRTab('image',document.querySelectorAll('.qr-tab')[2])">
+      <span>📷 AI截图识别</span>
+    </div>
+    <div class="todo-menu-item" onclick="closeQuickAction();openCapture();switchQRTab('voice',document.querySelectorAll('.qr-tab')[1])">
+      <span>🎤 语音识别</span>
     </div>
     <div class="todo-menu-cancel" onclick="closeQuickAction()">取消</div>
   </div>
@@ -829,6 +838,13 @@ body.standalone .topbar{padding-top:calc(10px + var(--safe-top))}
     <div style="display:flex;gap:8px">
       <button class="btn-primary" style="flex:1;padding:14px;font-size:15px;font-weight:600" onclick="saveKnowledge()">保存到知识库</button>
     </div>
+  </div>
+</div>
+
+<!-- ========== Project Plan Confirmation (AI auto-split) ========== -->
+<div class="modal-overlay" id="projectPlanOverlay" onclick="if(event.target===this)closeProjectPlan()">
+  <div class="modal-sheet">
+    <!-- content injected dynamically -->
   </div>
 </div>
 
@@ -1112,13 +1128,13 @@ function navigateTo(view) {
   if (view !== 'module') currentModule = null;
   window.scrollTo(0, 0);
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const navMap = { home:'home', todo:'todo', modules:'modules', knowledge:'knowledge' };
+  const navMap = { home:'home', todo:'todo', projects:'projects', knowledge:'knowledge' };
   if (navMap[view]) {
     const navEl = document.querySelector(`[data-nav="${navMap[view]}"]`);
     if (navEl) navEl.classList.add('active');
   }
   document.getElementById('topbarTitle').textContent = {
-    home:'丸子的工作台', todo:'待办计划', knowledge:'知识库', modules:'模块',
+    home:'丸子的工作台', todo:'待办计划', knowledge:'知识库', projects:'项目',
     module: currentModule ? MODULES[currentModule].name : '模块',
     important:'重要信息', review:'周/月复盘', project:'项目详情'
   }[view] || '丸子的工作台';
@@ -1131,7 +1147,7 @@ function navigateTo(view) {
     case 'home': renderHome(); break;
     case 'todo': renderTodoManager(); break;
     case 'knowledge': renderKnowledge(); break;
-    case 'modules': renderModulesPage(); break;
+    case 'projects': renderProjectsPage(); break;
     case 'module': renderModulePage(currentModule); break;
     case 'important': renderImportantInfo(); break;
     case 'review': renderReview(); break;
@@ -1178,15 +1194,28 @@ function renderHome() {
   briefingHtml += `<div class="briefing-item"><div class="bi-dot"></div><div>今日待办 <strong>${todayTodos.length}</strong> 项 · 已完成 <strong>${todayDone.length}</strong> 项 · 完成率 <strong>${completionRate}%</strong></div></div>`;
   // Overdue
   if (overdueTodos.length > 0) briefingHtml += `<div class="briefing-item"><div class="bi-dot red"></div><div><strong>${overdueTodos.length}</strong> 项任务已逾期，建议优先处理</div></div>`;
-  // Project progress
+  // Nearest deadline project
   if (activeProjects.length > 0) {
-    briefingHtml += `<div class="briefing-item"><div class="bi-dot purple"></div><div>进行中项目 <strong>${activeProjects.length}</strong> 个`;
-    if (staleProjects.length > 0) briefingHtml += `，<strong>${staleProjects.length}</strong> 个超过7天未推进`;
-    briefingHtml += '</div></div>';
+    const withDue = activeProjects.filter(p => p.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    if (withDue.length > 0) {
+      const np = withDue[0];
+      const daysLeft = Math.ceil((new Date(np.dueDate) - new Date()) / 86400000);
+      const npTasks = data.todos.filter(t => t.projectId === np.id);
+      const npDone = npTasks.filter(t => t.status === 'done').length;
+      const npProgress = npTasks.length > 0 ? Math.round(npDone / npTasks.length * 100) : 0;
+      briefingHtml += `<div class="briefing-item"><div class="bi-dot orange"></div><div>⏰ 最近截止项目：<strong>${escapeHtml(np.name)}</strong> · ${npProgress}% · ${daysLeft < 0 ? '已逾期' + (-daysLeft) + '天' : '距离截止' + daysLeft + '天'} <span style="color:var(--accent);text-decoration:underline" onclick="openProjectDetail('${np.id}')">查看</span></div></div>`;
+    }
   }
-  // Projects due soon
-  if (dueSoonProjects.length > 0) {
-    briefingHtml += `<div class="briefing-item"><div class="bi-dot orange"></div><div>项目 <strong>${dueSoonProjects.map(p => p.name).join('、')}</strong> 即将到期</div></div>`;
+  // Stale projects
+  if (staleProjects.length > 0) {
+    staleProjects.forEach(sp => {
+      const staleDays = Math.floor((new Date() - new Date(sp.lastActivity)) / 86400000);
+      briefingHtml += `<div class="briefing-item"><div class="bi-dot red"></div><div>⚠️ 项目「<strong>${escapeHtml(sp.name)}</strong>」已 ${staleDays} 天未推进 <span style="color:var(--accent);text-decoration:underline" onclick="openProjectDetail('${sp.id}')">去推进</span></div></div>`;
+    });
+  }
+  // Active projects summary
+  if (activeProjects.length > 0) {
+    briefingHtml += `<div class="briefing-item"><div class="bi-dot purple"></div><div>进行中项目 <strong>${activeProjects.length}</strong> 个${staleProjects.length > 0 ? '，其中 ' + staleProjects.length + ' 个需关注' : ''}</div></div>`;
   }
   // AI suggestion: what to focus on today
   let aiSuggestion = '';
@@ -1196,17 +1225,32 @@ function renderHome() {
     const sp = staleProjects[0];
     const nextTask = data.todos.find(t => t.projectId === sp.id && t.status === 'pending');
     aiSuggestion = nextTask ? `项目「${sp.name}」已${Math.floor((new Date() - new Date(sp.lastActivity))/86400000)}天未推进，建议今天：${nextTask.title}` : `项目「${sp.name}」已超过7天未推进`;
+  } else if (activeProjects.length > 0) {
+    const withDue = activeProjects.filter(p => p.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    if (withDue.length > 0) {
+      const np = withDue[0];
+      const nextTask = data.todos.find(t => t.projectId === np.id && t.status === 'pending');
+      const daysLeft = Math.ceil((new Date(np.dueDate) - new Date()) / 86400000);
+      if (nextTask && daysLeft <= 7) {
+        aiSuggestion = `「${np.name}」距离截止仅${daysLeft}天，建议今天完成：${nextTask.title}`;
+      } else if (nextTask) {
+        aiSuggestion = `今天可以推进「${np.name}」：${nextTask.title}`;
+      } else {
+        aiSuggestion = `今日无紧急任务，可推进项目：「${np.name}」`;
+      }
+    } else if (todayTodos.length > 0) {
+      const highPri = todayTodos.find(t => t.priority === 'high');
+      aiSuggestion = highPri ? `今天重点完成：「${highPri.title}」` : `今天有${todayTodos.length}项待办，合理安排时间`;
+    } else {
+      aiSuggestion = `今日无紧急任务，可推进项目：「${activeProjects[0].name}」`;
+    }
   } else if (todayTodos.length > 0) {
     const highPri = todayTodos.find(t => t.priority === 'high');
     aiSuggestion = highPri ? `今天重点完成：「${highPri.title}」` : `今天有${todayTodos.length}项待办，合理安排时间`;
-  } else if (activeProjects.length > 0) {
-    aiSuggestion = `今日无紧急任务，可推进项目：「${activeProjects[0].name}」`;
   } else {
     aiSuggestion = '一切就绪，享受轻松的一天 🎉';
   }
   briefingHtml += `<div class="briefing-item"><div class="bi-dot green"></div><div>💡 ${aiSuggestion}</div></div>`;
-  // Inbox reminder
-  if (inboxCount > 0) briefingHtml += `<div class="briefing-item"><div class="bi-dot orange"></div><div>收件箱有 <strong>${inboxCount}</strong> 条待整理 · <span style="color:var(--accent);text-decoration:underline" onclick="navigateTo('todo');setTimeout(()=>renderInboxView(),50)">去处理</span></div></div>`;
   briefingHtml += '</div>';
 
   // ===== ② 今日聚焦 (Top 3) =====
@@ -1758,7 +1802,87 @@ function processInboxItem(id) {
   saveData();
 }
 
-/* ========== Modules Page ========== */
+/* ========== Projects Center Page ========== */
+function renderProjectsPage() {
+  const el = document.getElementById('mainContent');
+  const today = todayStr();
+  const projects = data.projects.filter(p => p.status !== 'done');
+  const doneProjects = data.projects.filter(p => p.status === 'done');
+
+  let html = `<div style="padding:0 0 12px"><button class="btn-primary" style="width:100%;padding:12px;font-size:14px" onclick="openProjectEditor()">+ 创建项目</button></div>`;
+
+  if (projects.length === 0 && doneProjects.length === 0) {
+    html += '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-title">暂无项目</div><div class="empty-sub">创建一个项目，开始管理你的长期目标</div></div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  // Active projects
+  if (projects.length > 0) {
+    html += '<div class="section"><div class="section-header"><div class="section-title">进行中</div><div style="font-size:13px;color:var(--text-tertiary)">' + projects.length + '</div></div>';
+    // Sort: due soon first, then stale last
+    projects.sort((a, b) => {
+      const aDue = a.dueDate ? new Date(a.dueDate) - new Date() : Infinity;
+      const bDue = b.dueDate ? new Date(b.dueDate) - new Date() : Infinity;
+      return aDue - bDue;
+    });
+    projects.forEach(p => {
+      const tasks = data.todos.filter(t => t.projectId === p.id);
+      const doneTasks = tasks.filter(t => t.status === 'done').length;
+      const pendingTasks = tasks.filter(t => t.status === 'pending');
+      const progress = tasks.length > 0 ? Math.round(doneTasks / tasks.length * 100) : 0;
+      const nextTask = pendingTasks[0];
+      // Days to deadline
+      let deadlineInfo = '';
+      if (p.dueDate) {
+        const daysLeft = Math.ceil((new Date(p.dueDate) - new Date(today)) / 86400000);
+        if (daysLeft < 0) deadlineInfo = `<span style="color:var(--red)">已逾期${-daysLeft}天</span>`;
+        else if (daysLeft === 0) deadlineInfo = `<span style="color:var(--orange)">今天截止</span>`;
+        else deadlineInfo = `距离截止${daysLeft}天`;
+      }
+      // Stale check
+      const staleDays = p.lastActivity ? Math.floor((new Date() - new Date(p.lastActivity)) / 86400000) : 0;
+      const staleTag = staleDays > 7 ? `<span style="color:var(--red);font-size:11px">${staleDays}天未推进</span>` : '';
+      html += `<div class="card card-tap" onclick="openProjectDetail('${p.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600">${escapeHtml(p.name)}</div>
+            ${p.description ? `<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4">${escapeHtml(p.description.slice(0, 60))}${p.description.length > 60 ? '…' : ''}</div>` : ''}
+            ${nextTask ? `<div style="font-size:12px;color:var(--accent);margin-top:6px">→ 下一步：${escapeHtml(nextTask.title)}</div>` : ''}
+          </div>
+          <span class="tag tag-blue">${progress}%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-tertiary);margin-top:8px">
+          <span>${doneTasks}/${tasks.length} 任务${deadlineInfo ? ' · ' + deadlineInfo : ''}</span>
+          ${staleTag}
+        </div>
+        <div class="project-progress"><div class="project-progress-fill" style="width:${progress}%"></div></div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Completed projects (collapsed)
+  if (doneProjects.length > 0) {
+    html += `<div class="section" style="margin-top:12px"><div class="section-header"><div class="section-title" style="font-size:13px;color:var(--text-tertiary)">已完成 ${doneProjects.length}</div></div>`;
+    doneProjects.forEach(p => {
+      const tasks = data.todos.filter(t => t.projectId === p.id);
+      const doneTasks = tasks.filter(t => t.status === 'done').length;
+      const progress = tasks.length > 0 ? Math.round(doneTasks / tasks.length * 100) : 100;
+      html += `<div class="card card-tap" style="opacity:.7" onclick="openProjectDetail('${p.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:14px;font-weight:500">✅ ${escapeHtml(p.name)}</div>
+          <span class="tag tag-green">${progress}%</span>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+/* ========== Modules Page (legacy, accessible from project domain) ========== */
 function renderModulesPage() {
   const el = document.getElementById('mainContent');
   let html = '<div class="module-grid">';
@@ -1893,7 +2017,7 @@ function openProjectDetail(id) {
 
 function renderProjectDetail(id) {
   const p = data.projects.find(x => x.id === id);
-  if (!p) { navigateTo('modules'); return; }
+  if (!p) { navigateTo('projects'); return; }
   const el = document.getElementById('mainContent');
   document.getElementById('topbarTitle').textContent = p.name;
 
@@ -1922,12 +2046,12 @@ function renderProjectDetail(id) {
     ${nextTask ? `<div class="next-action-box" onclick="toggleTodoDone('${nextTask.id}')"><div class="na-label">下一步</div><div class="na-text">${escapeHtml(nextTask.title)}</div><div class="na-arrow">→</div></div>` : ''}
   </div>`;
 
-  // Tabs
+  // Tabs: 待办 / 知识 / 资料 / 已完成
   html += `<div class="tab-bar">
     <div class="tab-item ${_projectTab==='tasks'?'active':''}" onclick="_projectTab='tasks';renderProjectDetail('${id}')">待办 (${pendingTasks.length})</div>
     <div class="tab-item ${_projectTab==='knowledge'?'active':''}" onclick="_projectTab='knowledge';renderProjectDetail('${id}')">知识</div>
-    <div class="tab-item ${_projectTab==='materials'?'active':''}" onclick="_projectTab='materials';renderProjectDetail('${id}')">附件</div>
-    <div class="tab-item ${_projectTab==='timeline'?'active':''}" onclick="_projectTab='timeline';renderProjectDetail('${id}')">时间线</div>
+    <div class="tab-item ${_projectTab==='materials'?'active':''}" onclick="_projectTab='materials';renderProjectDetail('${id}')">资料 (${(p.materials||[]).length})</div>
+    <div class="tab-item ${_projectTab==='done'?'active':''}" onclick="_projectTab='done';renderProjectDetail('${id}')">已完成 (${doneTasks})</div>
   </div>`;
 
   if (_projectTab === 'tasks') {
@@ -1935,12 +2059,6 @@ function renderProjectDetail(id) {
       html += '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">暂无待办</div><div class="empty-sub">点击下方 + 添加任务到该项目</div></div>';
     } else {
       pendingTasks.forEach(t => { html += renderTodoItem(t); });
-    }
-    // Show done tasks collapsed
-    if (doneTasks > 0) {
-      html += `<div class="section" style="margin-top:12px"><div class="section-header"><div class="section-title" style="font-size:13px;color:var(--text-tertiary)">已完成 ${doneTasks}</div></div>`;
-      tasks.filter(t => t.status === 'done').forEach(t => { html += renderTodoItem(t); });
-      html += '</div>';
     }
   } else if (_projectTab === 'knowledge') {
     const kbs = data.knowledge.filter(k => k.projectId === id);
@@ -1957,29 +2075,30 @@ function renderProjectDetail(id) {
     }
   } else if (_projectTab === 'materials') {
     const materials = p.materials || [];
+    html += `<div style="padding:0 0 8px"><button class="btn-secondary" style="width:100%;padding:10px;font-size:13px" onclick="addProjectMaterial('${id}')">+ 添加资料/链接</button></div>`;
     if (materials.length === 0) {
-      html += '<div class="empty-state"><div class="empty-icon">📎</div><div class="empty-title">暂无附件</div><div class="empty-sub">图片、文档、链接等资料会显示在这里</div></div>';
+      html += '<div class="empty-state"><div class="empty-icon">📎</div><div class="empty-title">暂无资料</div><div class="empty-sub">添加文档、图片、链接等项目资料</div></div>';
     } else {
       materials.forEach(m => {
-        html += `<div class="card"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">${m.type === 'image' ? '🖼️' : m.type === 'pdf' ? '📄' : m.type === 'excel' ? '📊' : m.type === 'word' ? '📝' : '🔗'}</div><div><div style="font-size:14px;font-weight:500">${escapeHtml(m.name)}</div><div style="font-size:12px;color:var(--text-tertiary)">${m.date}</div></div></div></div>`;
+        const icon = m.type === 'image' ? '🖼️' : m.type === 'pdf' ? '📄' : m.type === 'excel' ? '📊' : m.type === 'word' ? '📝' : m.type === 'link' ? '🔗' : '📎';
+        html += `<div class="card"><div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:24px">${icon}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500">${escapeHtml(m.name)}</div>
+            ${m.url ? `<div style="font-size:12px;color:var(--accent);text-decoration:underline" onclick="window.open('${m.url}','_blank')">${escapeHtml(m.url)}</div>` : ''}
+            ${m.description ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">${escapeHtml(m.description)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">${m.date || ''}</div>
+          </div>
+          <button class="modal-close" style="font-size:16px;padding:4px 8px" onclick="deleteProjectMaterial('${id}','${m.id}')">✕</button>
+        </div></div>`;
       });
     }
-  } else if (_projectTab === 'timeline') {
-    const records = data.records.filter(r => r.projectId === id);
-    const doneHistory = tasks.filter(t => t.status === 'done');
-    const timeline = [
-      ...records.map(r => ({ date: r.createdAt, text: r.text, icon: '📝' })),
-      ...doneHistory.map(t => ({ date: t.completedAt, text: '完成：' + t.title, icon: '✅' })),
-      { date: p.createdAt, text: '创建项目', icon: '🚀' }
-    ].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    if (timeline.length === 0) {
-      html += '<div class="empty-state"><div class="empty-icon">📜</div><div class="empty-title">暂无记录</div><div class="empty-sub">项目进展会自动记录在这里</div></div>';
+  } else if (_projectTab === 'done') {
+    const doneList = tasks.filter(t => t.status === 'done');
+    if (doneList.length === 0) {
+      html += '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">暂无已完成任务</div><div class="empty-sub">完成的任务会显示在这里</div></div>';
     } else {
-      html += '<div class="timeline">';
-      timeline.forEach(tl => {
-        html += `<div class="timeline-item"><div class="timeline-dot">${tl.icon}</div><div class="timeline-content"><div class="timeline-date">${tl.date || ''}</div><div class="timeline-text">${escapeHtml(tl.text)}</div></div></div>`;
-      });
-      html += '</div>';
+      doneList.forEach(t => { html += renderTodoItem(t); });
     }
   }
 
@@ -2023,6 +2142,35 @@ function addTaskToProject(projectId, title, priority, dueDate, time) {
   saveData();
 }
 
+function addProjectMaterial(projectId) {
+  const name = prompt('资料名称：');
+  if (!name) return;
+  const url = prompt('链接地址（可选，以http开头）：') || '';
+  const description = prompt('备注描述（可选）：') || '';
+  const p = data.projects.find(x => x.id === projectId);
+  if (!p) return;
+  if (!p.materials) p.materials = [];
+  p.materials.push({
+    id: 'm' + Date.now() + Math.random().toString(36).slice(2, 5),
+    name, url: url || null, description: description || null,
+    type: url ? 'link' : 'file',
+    date: todayStr()
+  });
+  p.lastActivity = new Date().toISOString();
+  saveData();
+  renderProjectDetail(projectId);
+  showToast('资料已添加 ✓');
+}
+
+function deleteProjectMaterial(projectId, materialId) {
+  const p = data.projects.find(x => x.id === projectId);
+  if (!p || !p.materials) return;
+  p.materials = p.materials.filter(m => m.id !== materialId);
+  saveData();
+  renderProjectDetail(projectId);
+  showToast('资料已删除');
+}
+
 function deleteProject(id) {
   if (!confirm('确定删除此项目？项目下的任务不会被删除。')) return;
   // Unlink tasks from this project
@@ -2033,7 +2181,7 @@ function deleteProject(id) {
   if (data.projectOrder) data.projectOrder = data.projectOrder.filter(x => x !== id);
   saveData();
   showToast('项目已删除');
-  navigateTo('modules');
+  navigateTo('projects');
 }
 
 function editProject(id) {
@@ -2765,12 +2913,114 @@ async function callAIClassify(type) {
   const text = document.getElementById('captureInput').value.trim();
   if (!text) { showToast('请先输入内容'); return; }
 
+  // If in project context, add directly
+  if (currentView === 'project' && _currentProjectId) {
+    submitProjectTask();
+    return;
+  }
+
+  // Check if input is a project via AI
+  try {
+    const planResult = await checkProjectPlan(text);
+    if (planResult && planResult.isProject) {
+      // Show project creation confirmation
+      showProjectPlanConfirm(planResult, text);
+      return;
+    }
+  } catch (e) {
+    // If project planning fails, fall through to normal classification
+    console.log('Project plan check skipped:', e);
+  }
+
   // Submit to background queue — non-blocking
   submitTextToQueue(text);
 
   // Clear input and keep modal open for next entry
   document.getElementById('captureInput').value = '';
   showToast('已提交 AI 分析，可继续输入下一条 📝');
+}
+
+// AI Project Planning — check if text describes a project
+async function checkProjectPlan(text) {
+  const resp = await fetchWithTimeout('/api/ai/plan-project', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: text,
+      currentDate: todayStr()
+    })
+  }, 30000);
+  if (!resp.ok) throw new Error('plan-project failed');
+  return await resp.json();
+}
+
+// Show project plan confirmation dialog
+function showProjectPlanConfirm(plan, originalText) {
+  closeCapture();
+  const overlay = document.getElementById('projectPlanOverlay');
+  const proj = plan.project;
+  const phases = plan.phases || [];
+
+  let html = `<div class="modal-header">
+    <div class="modal-title">📁 AI 项目规划</div>
+    <button class="modal-close" onclick="closeProjectPlan()">✕</button>
+  </div>`;
+  html += `<div style="margin-bottom:16px">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">${escapeHtml(proj.name)}</div>
+    ${proj.description ? `<div style="font-size:13px;color:var(--text-secondary)">${escapeHtml(proj.description)}</div>` : ''}
+    ${proj.dueDate ? `<div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">⏰ 截止日期：${formatDate(proj.dueDate)}</div>` : ''}
+  </div>`;
+
+  let totalTasks = 0;
+  phases.forEach((phase, i) => {
+    totalTasks += phase.tasks.length;
+    html += `<div class="card" style="margin-bottom:8px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">${i+1}. ${escapeHtml(phase.name)}</div>`;
+    phase.tasks.forEach(task => {
+      html += `<div style="font-size:13px;color:var(--text-secondary);padding:3px 0;display:flex;align-items:center;gap:6px"><span style="color:var(--accent)">▸</span> ${escapeHtml(task)}</div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px">共 ${phases.length} 个阶段 · ${totalTasks} 个任务</div>`;
+  html += `<div style="display:flex;gap:8px">
+    <button class="btn-secondary" style="flex:1;padding:12px" onclick="closeProjectPlan();openCapture();document.getElementById('captureInput').value='${originalText.replace(/'/g, "\\'")}'">取消，按普通待办处理</button>
+    <button class="btn-primary" style="flex:1;padding:12px" onclick="confirmCreateProjectFromPlan()">✓ 创建项目</button>
+  </div>`;
+
+  overlay.querySelector('.modal-sheet').innerHTML = html;
+  overlay.classList.add('show');
+
+  // Store plan data for confirmation
+  _projectPlan = plan;
+}
+let _projectPlan = null;
+
+function closeProjectPlan() {
+  document.getElementById('projectPlanOverlay').classList.remove('show');
+  _projectPlan = null;
+}
+
+function confirmCreateProjectFromPlan() {
+  if (!_projectPlan) return;
+  const proj = _projectPlan.project;
+  const phases = _projectPlan.phases || [];
+
+  // Create the project
+  const projectId = createProject(proj.name, proj.domain, proj.description, proj.dueDate);
+
+  // Create tasks from phases
+  let taskCount = 0;
+  phases.forEach(phase => {
+    phase.tasks.forEach(taskTitle => {
+      addTaskToProject(projectId, taskTitle);
+      taskCount++;
+    });
+  });
+
+  closeProjectPlan();
+  showToast(`项目「${proj.name}」已创建，含 ${taskCount} 个任务 ✓`);
+  openProjectDetail(projectId);
 }
 
 /* ========== Background Task Queue ========== */
@@ -3960,7 +4210,7 @@ function rerenderCurrentView() {
     case 'home': renderHome(); break;
     case 'todo': renderTodoManager(); break;
     case 'knowledge': renderKnowledge(); break;
-    case 'modules': renderModulesPage(); break;
+    case 'projects': renderProjectsPage(); break;
     case 'module': renderModulePage(currentModule); break;
     case 'important': renderImportantInfo(); break;
     case 'review': renderReview(); break;
